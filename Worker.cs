@@ -17,7 +17,7 @@ public abstract class Worker : BackgroundService
     protected readonly ushort ReadDelayTime;
     protected readonly ushort UpdateDelayTime;
     protected readonly IHostApplicationLifetime _hostApplicationLifetime;
-    private readonly ILogger<Worker>? _logger;
+    protected readonly ILogger<Worker>? _logger;
     private readonly PostgreSQLConfiguration _postgreSQLConfiguration;
     private readonly NpgsqlConnectionStringBuilder _connectionStringBuilder;
     public Worker(IHostApplicationLifetime hostApplicationLifetime, ILogger<Worker>? logger, IOptions<PostgreSQLConfiguration> options)
@@ -44,64 +44,84 @@ public abstract class Worker : BackgroundService
     {
         // Build connection string using parameters from portal
         //
-
-        using (var conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
+        try
         {
-            _logger.LogInformation("Opening connection");
-            await conn.OpenAsync();
-
-            using (var command = new NpgsqlCommand("DROP TABLE IF EXISTS inventory", conn))
+            using (var conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
-                await command.ExecuteNonQueryAsync();
-                _logger.LogInformation("Finished dropping table (if existed)");
+                _logger.LogInformation("Opening connection");
+                await conn.OpenAsync();
 
+                using (var command = new NpgsqlCommand("DROP TABLE IF EXISTS inventory", conn))
+                {
+                    await command.ExecuteNonQueryAsync();
+                    _logger.LogInformation("Finished dropping table (if existed)");
+
+                }
+
+                using (var command = new NpgsqlCommand("CREATE TABLE inventory(id serial PRIMARY KEY, name VARCHAR(50), quantity INTEGER)", conn))
+                {
+                    await command.ExecuteNonQueryAsync();
+                    _logger.LogInformation("Finished creating table");
+                }
+
+                using (var command = new NpgsqlCommand("INSERT INTO inventory (name, quantity) VALUES (@n1, @q1), (@n2, @q2), (@n3, @q3)", conn))
+                {
+                    command.Parameters.AddWithValue("n1", "banana");
+                    command.Parameters.AddWithValue("q1", 150);
+                    command.Parameters.AddWithValue("n2", "orange");
+                    command.Parameters.AddWithValue("q2", 154);
+                    command.Parameters.AddWithValue("n3", "apple");
+                    command.Parameters.AddWithValue("q3", 100);
+
+                    int nRows = await command.ExecuteNonQueryAsync();
+                    _logger.LogInformation("Number of rows inserted={0}", nRows);
+                }
+                await conn.CloseAsync();
             }
 
-            using (var command = new NpgsqlCommand("CREATE TABLE inventory(id serial PRIMARY KEY, name VARCHAR(50), quantity INTEGER)", conn))
-            {
-                await command.ExecuteNonQueryAsync();
-                _logger.LogInformation("Finished creating table");
-            }
-
-            using (var command = new NpgsqlCommand("INSERT INTO inventory (name, quantity) VALUES (@n1, @q1), (@n2, @q2), (@n3, @q3)", conn))
-            {
-                command.Parameters.AddWithValue("n1", "banana");
-                command.Parameters.AddWithValue("q1", 150);
-                command.Parameters.AddWithValue("n2", "orange");
-                command.Parameters.AddWithValue("q2", 154);
-                command.Parameters.AddWithValue("n3", "apple");
-                command.Parameters.AddWithValue("q3", 100);
-
-                int nRows = await command.ExecuteNonQueryAsync();
-                _logger.LogInformation("Number of rows inserted={0}", nRows);
-            }
+            _logger.LogInformation("Exit!");
         }
-
-        _logger.LogInformation("Exit!");
+        catch (Exception e)
+        {
+            _logger.LogError(e.Message);
+            throw e;
+        }
     }
 
     protected async Task read()
     {
         // Build connection string using parameters from portal
         //
-        using (var conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
+        NpgsqlConnection? conn = null;
+        try
         {
-            _logger.LogInformation("Opening connection");
-            await conn.OpenAsync();
-
-
-            using (var command = new NpgsqlCommand("SELECT * FROM inventory", conn))
+            using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
+                _logger.LogInformation("Opening connection");
+                await conn.OpenAsync();
 
-                var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+
+                using (var command = new NpgsqlCommand("SELECT * FROM inventory", conn))
                 {
-                    _logger.LogInformation("Reading from table=({0}, {1}, {2})", reader.GetInt32(0).ToString(), reader.GetString(1), reader.GetInt32(2).ToString());
+
+                    var reader = await command.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        _logger.LogInformation("Reading from table=({0}, {1}, {2})", reader.GetInt32(0).ToString(), reader.GetString(1), reader.GetInt32(2).ToString());
+                    }
+                    await reader.CloseAsync();
                 }
-                await reader.CloseAsync();
+                await conn.CloseAsync();
             }
+            _logger.LogInformation("Exit");
         }
-        _logger.LogInformation("Exit");
+        catch (Exception e)
+        {
+            _logger.LogError(e.Message);
+            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            throw e;
+
+        }
         //Console.WriteLine("Press RETURN to exit");
         ////Console.ReadLine();
     }
@@ -110,39 +130,63 @@ public abstract class Worker : BackgroundService
     {
         // Build connection string using parameters from portal
         //
-        using (var conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
+        NpgsqlConnection? conn = null;
+        try
         {
-            _logger.LogInformation("Opening connection");
-            await conn.OpenAsync();
-
-            using (var command = new NpgsqlCommand("UPDATE inventory SET quantity = @q WHERE name = @n", conn))
+            using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
-                command.Parameters.AddWithValue("n", "banana");
-                command.Parameters.AddWithValue("q", 200);
-                int nRows = await command.ExecuteNonQueryAsync();
-                _logger.LogInformation("Number of rows updated={0}", nRows);
+                _logger.LogInformation("Opening connection");
+                await conn.OpenAsync();
+
+                using (var command = new NpgsqlCommand("UPDATE inventory SET quantity = @q WHERE name = @n", conn))
+                {
+                    command.Parameters.AddWithValue("n", "banana");
+                    command.Parameters.AddWithValue("q", 200);
+                    int nRows = await command.ExecuteNonQueryAsync();
+                    _logger.LogInformation("Number of rows updated={0}", nRows);
+                }
+                await conn.CloseAsync();
             }
+            _logger.LogInformation("update complete");
         }
-        _logger.LogInformation("update complete");
+        catch (Exception e)
+        {
+            _logger.LogError(e.Message);
+            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            throw e;
+
+        }
     }
     protected async Task delete()
     {
         // Build connection string using parameters from portal
         //
-        using (var conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
+        NpgsqlConnection? conn = null;
+        try
         {
-            _logger.LogInformation("Opening connection");
-            await conn.OpenAsync();
-
-            using (var command = new NpgsqlCommand("DELETE FROM inventory WHERE name = @n", conn))
+            using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
-                command.Parameters.AddWithValue("n", "orange");
+                _logger.LogInformation("Opening connection");
+                await conn.OpenAsync();
 
-                int nRows = await command.ExecuteNonQueryAsync();
-                _logger.LogInformation("Number of rows deleted={0}", nRows);
+                using (var command = new NpgsqlCommand("DELETE FROM inventory WHERE name = @n", conn))
+                {
+                    command.Parameters.AddWithValue("n", "orange");
+
+                    int nRows = await command.ExecuteNonQueryAsync();
+                    _logger.LogInformation("Number of rows deleted={0}", nRows);
+                }
+                await conn.CloseAsync();
             }
-        }
 
-        _logger.LogInformation("Exit");
+            _logger.LogInformation("Exit");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e.Message);
+            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            throw e;
+
+        }
     }
 }

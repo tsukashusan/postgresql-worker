@@ -16,8 +16,16 @@ namespace postgresql_worker
         {
             for (; stoppingToken.IsCancellationRequested == false;)
             {
-                await read();
-                await Task.Delay(ReadDelayTime);
+                try
+                {
+                    await read();
+                    await Task.Delay(ReadDelayTime);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e.StackTrace);
+                    continue;
+                }
             }
             _hostApplicationLifetime.StopApplication();
         }
