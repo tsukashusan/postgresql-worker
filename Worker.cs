@@ -177,7 +177,7 @@ RETRY:
                         goto RETRY;
                 }
 
-                using (var command = new NpgsqlCommand("SELECT * FROM inventory ORDER BY quantity LIMIT 10", conn))
+                using (var command = new NpgsqlCommand("SELECT * FROM inventory ORDER BY quantity DESC LIMIT 10", conn))
                 {
 
                     var reader = await command.ExecuteReaderAsync();
@@ -226,10 +226,10 @@ RETRY:
                         goto RETRY;
                 }
 
-                using (var command = new NpgsqlCommand("UPDATE inventory SET quantity = @q WHERE name = @n", conn))
+                using (var command = new NpgsqlCommand("UPDATE inventory SET quantity = @q WHERE name = @n and quantity > 10000", conn))
                 {
                     command.Parameters.AddWithValue("n", "banana");
-                    command.Parameters.AddWithValue("q", 200);
+                    command.Parameters.AddWithValue("q", rnd.Next(1000, 10000));
                     int nRows = await command.ExecuteNonQueryAsync();
                     _logger.LogInformation("Number of rows updated={0}", nRows);
                 }
