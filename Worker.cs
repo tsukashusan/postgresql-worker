@@ -132,11 +132,11 @@ RETRY:
                 using (var command = new NpgsqlCommand("INSERT INTO inventory (name, quantity) VALUES (@n1, @q1), (@n2, @q2), (@n3, @q3)", conn))
                 {
                     command.Parameters.AddWithValue("n1", "banana");
-                    command.Parameters.AddWithValue("q1", 150);
+                    command.Parameters.AddWithValue("q1", rnd.Next(1, int.MaxValue));
                     command.Parameters.AddWithValue("n2", "orange");
-                    command.Parameters.AddWithValue("q2", 154);
+                    command.Parameters.AddWithValue("q2", rnd.Next(1, int.MaxValue));
                     command.Parameters.AddWithValue("n3", "apple");
-                    command.Parameters.AddWithValue("q3", 100);
+                    command.Parameters.AddWithValue("q3", rnd.Next(1, int.MaxValue));
 
                     int nRows = await command.ExecuteNonQueryAsync();
                     _logger.LogInformation("Number of rows inserted={0}", nRows);
@@ -177,7 +177,7 @@ RETRY:
                         goto RETRY;
                 }
 
-                using (var command = new NpgsqlCommand("SELECT * FROM inventory", conn))
+                using (var command = new NpgsqlCommand("SELECT * FROM inventory ORDER BY quantity LIMIT 10", conn))
                 {
 
                     var reader = await command.ExecuteReaderAsync();
