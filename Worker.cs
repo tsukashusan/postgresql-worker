@@ -44,9 +44,10 @@ public abstract class Worker : BackgroundService
     {
         // Build connection string using parameters from portal
         //
+        NpgsqlConnection? conn = null;
         try
         {
-            using (var conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
+            using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
                 _logger.LogInformation("Opening connection");
                 await conn.OpenAsync();
@@ -84,6 +85,7 @@ public abstract class Worker : BackgroundService
         catch (Exception e)
         {
             _logger.LogError(e.Message);
+            if(conn != null) NpgsqlConnection.ClearPool(conn);
             throw e;
         }
     }
