@@ -8,5 +8,6 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.Configure<PostgreSQLConfiguration>(configuration.GetSection(nameof(PostgreSQLConfiguration)));
         services.AddHostedService<UpdateWorker>();
         services.AddHostedService<ReadWorker>();
+        services.AddHostedService<InsertWorker>();
     }).Build();
 await host.RunAsync();

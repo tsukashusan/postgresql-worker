@@ -9,6 +9,7 @@ namespace postgresql_worker
         public ushort Port { get; set; }
         public ushort ReadDelayTime {get; set;}
         public ushort UpdateDelayTime {get; set;}
+        public ushort InsertDelayTime {get; set;}
         public ushort MinPoolSize{get; set;}
         public ushort MaxPoolSize {get; set;}
         public ushort ConnectionLifeTime{get; set;}
