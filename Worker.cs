@@ -85,23 +85,33 @@ public abstract class Worker : BackgroundService
         catch (Exception e)
         {
             _logger.LogError(e.Message);
-            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            if (conn != null) NpgsqlConnection.ClearPool(conn);
             throw e;
         }
     }
 
     protected async Task read()
     {
-        // Build connection string using parameters from portal
-        //
+    // Build connection string using parameters from portal
+    //
+    RETRY:
         NpgsqlConnection? conn = null;
         try
         {
             using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
-                _logger.LogInformation("Opening connection");
-                await conn.OpenAsync();
-
+                _logger.LogInformation("Opening connection State:{0}", conn.State);
+                switch (conn.State)
+                {
+                    case System.Data.ConnectionState.Open:
+                        break;
+                    case System.Data.ConnectionState.Closed:
+                        await conn.OpenAsync();
+                        break;
+                    default:
+                        NpgsqlConnection.ClearPool(conn);
+                        goto RETRY;
+                }
 
                 using (var command = new NpgsqlCommand("SELECT * FROM inventory", conn))
                 {
@@ -120,7 +130,7 @@ public abstract class Worker : BackgroundService
         catch (Exception e)
         {
             _logger.LogError(e.Message);
-            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            if (conn != null) NpgsqlConnection.ClearPool(conn);
             throw e;
 
         }
@@ -130,15 +140,27 @@ public abstract class Worker : BackgroundService
 
     protected async Task update()
     {
-        // Build connection string using parameters from portal
-        //
+    // Build connection string using parameters from portal
+    //
+    RETRY:
         NpgsqlConnection? conn = null;
         try
         {
             using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
-                _logger.LogInformation("Opening connection");
-                await conn.OpenAsync();
+                _logger.LogInformation("Opening connection State:{0}", conn.State);
+
+                switch (conn.State)
+                {
+                    case System.Data.ConnectionState.Open:
+                        break;
+                    case System.Data.ConnectionState.Closed:
+                        await conn.OpenAsync();
+                        break;
+                    default:
+                        NpgsqlConnection.ClearPool(conn);
+                        goto RETRY;
+                }
 
                 using (var command = new NpgsqlCommand("UPDATE inventory SET quantity = @q WHERE name = @n", conn))
                 {
@@ -154,22 +176,33 @@ public abstract class Worker : BackgroundService
         catch (Exception e)
         {
             _logger.LogError(e.Message);
-            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            if (conn != null) NpgsqlConnection.ClearPool(conn);
             throw e;
 
         }
     }
     protected async Task delete()
     {
-        // Build connection string using parameters from portal
-        //
+    // Build connection string using parameters from portal
+    //
+    RETRY:
         NpgsqlConnection? conn = null;
         try
         {
             using (conn = new NpgsqlConnection(_connectionStringBuilder.ConnectionString))
             {
-                _logger.LogInformation("Opening connection");
-                await conn.OpenAsync();
+                _logger.LogInformation("Opening connection State:{0}", conn.State);
+                switch (conn.State)
+                {
+                    case System.Data.ConnectionState.Open:
+                        break;
+                    case System.Data.ConnectionState.Closed:
+                        await conn.OpenAsync();
+                        break;
+                    default:
+                        NpgsqlConnection.ClearPool(conn);
+                        goto RETRY;
+                }
 
                 using (var command = new NpgsqlCommand("DELETE FROM inventory WHERE name = @n", conn))
                 {
@@ -186,7 +219,7 @@ public abstract class Worker : BackgroundService
         catch (Exception e)
         {
             _logger.LogError(e.Message);
-            if(conn != null) NpgsqlConnection.ClearPool(conn);
+            if (conn != null) NpgsqlConnection.ClearPool(conn);
             throw e;
 
         }
